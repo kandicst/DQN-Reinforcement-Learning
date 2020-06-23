@@ -1,3 +1,4 @@
 
 class Agent:
-    pass
+    def __init__(self):
+        pass
