@@ -1,32 +1,42 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-import torchvision.transforms as T
+from networks.Network import Network
 
 
-class DuelingDQN(nn.Module):
+class DuelingDDQN(Network):
 
     def __init__(self, input_shape, n_actions):
-        """
+        """ Dueling Double Deep Q-Network (based on paper by Wang et al., 2016)
         Parameters
         -----------
-        input_shape: array-like
+        input_shape: array-like or tuple
             size of the input to the network
-        lr: float
-            learning rate
-        n_actions:
+        n_actions: int
             number of possible actions in environment
 
+        Attributes
+        -----------
+        conv1-3: torch.nn.Conv2d
+            convolutional layers of the network
+        fc_v: torch.nn.Linear
+            fully-connnected layer for state value
+        fc_a: torch.nn.Linear
+            fully-connected layer for advantages
+        v_stream: torch.nn.Linear
+            fully-connected output layer for calculating state values
+        f_stream: torch.nn.Linear
+            fully-connected output layer for calculating advantages
         """
-        super(DuelingDQN, self).__init__()
+        super(DuelingDDQN, self).__init__(input_shape, n_actions)
         self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=2, stride=2)
         self.conv3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=1, stride=1)
 
         fc_input = self.conv2d_size_out()
 
-        self.fc = nn.Linear(in_features=fc_input, out_features=512)
+        self.fc_v = nn.Linear(in_features=fc_input, out_features=512)
+        self.fc_a = nn.Linear(in_features=fc_input, out_features=512)
         self.v_stream = nn.Linear(in_features=512, out_features=1)
         self.a_stream = nn.Linear(in_features=512, out_features=n_actions)
 
@@ -35,23 +45,22 @@ class DuelingDQN(nn.Module):
         Parameters
         -----------
         x: nd-array
-            representation of one state in the game
+            mini-batch of state representations
 
         Returns
         -----------
-        state_value: int
-            value of the state
-        advantages: array-like
-            advantage value for every action
+        state_value: torch.tensor
+            array of values for each state
+        advantages: torch.tensor
+            advantage values for every action for each state
         """
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = x.view(x.size(0), -1)
-        x = F.relu(self.fc(x))
 
-        state_value = self.v_stream(x)
-        advantages = self.a_stream(x)
+        state_value = self.v_stream(F.relu(self.fc_v(x)))
+        advantages = self.a_stream(F.relu(self.fc_a(x)))
         return state_value, advantages
 
     def get_fc_input(self, input_shape):
@@ -59,7 +68,7 @@ class DuelingDQN(nn.Module):
 
         Parameters
         -----------
-        input_shape: array-like
+        input_shape: array-like or tuple
             size of the input to the network (before convolutions)
 
         Returns
