@@ -5,21 +5,19 @@ Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'
 
 
 class ReplayMemory:
-    """ Memory of an DQN agent
+    """ Memory of an Deep Q-Network agent
 
     Parameters
     -----------
+    input_shape: array-like or tuple
+        size of the input to the network
     max_capacity: int
         maximum number of stored memories
-    input_shape: array-like
-        nd-array with the shape of one state
 
     Attributes
     -----------
-    curr_idx: int
-        index of first available element in memory
-        (after reaching max_capacity it goes back to 0
-        and starts overwriting old memories)
+    counter: int
+        how many times we pushed new observations
     states: nd-array
         nd-array containing all states in memory
     actions: array-like
@@ -32,9 +30,9 @@ class ReplayMemory:
         array of elements signaling whether the episode has terminated
     """
 
-    def __init__(self, max_capacity, input_shape):
+    def __init__(self, input_shape, max_capacity=20000):
         self.max_capacity = max_capacity
-        self.curr_idx = 0
+        self.counter = 0
         self.states = np.zeros((self.max_capacity, *input_shape), dtype=np.float16)
         self.actions = np.zeros(self.max_capacity, dtype=np.int8)
         self.next_states = np.zeros((self.max_capacity, *input_shape), dtype=np.float16)
@@ -52,7 +50,7 @@ class ReplayMemory:
         # Unpack the transition tuple
         self.assign(Transition(*args))
         # Update current index
-        self.curr_idx = (self.curr_idx + 1) % self.max_capacity
+        self.counter += 1
 
     def sample(self, n_transitions):
         """ Samples a number of random transitions from memory
@@ -68,16 +66,19 @@ class ReplayMemory:
             tuples (state, action, next_state, reward, terminal)
             each tuple element of n_transitions length
         """
-        max_idx = min(self.curr_idx, self.max_capacity)
+        # memory might not be full, so don't sample over all elements
+        max_idx = min(self.counter, self.max_capacity)
         indices = np.random.choice(max_idx, n_transitions, replace=False)
         return self.states[indices], self.actions[indices], self.next_states[indices], self.rewards[indices], \
             self.terminals[indices]
 
     def assign(self, transition):
         """ Unpacks the transition to memory """
+        # if memory full start overwriting oldest elements
+        next_available = self.counter if self.counter < self.max_capacity else self.counter % self.max_capacity
 
-        self.states[self.curr_idx] = transition.state
-        self.actions[self.curr_idx] = transition.action
-        self.next_states[self.curr_idx] = transition.next_state
-        self.rewards[self.curr_idx] = transition.reward
-        self.terminals[self.curr_idx] = transition.terminal
+        self.states[next_available] = transition.state
+        self.actions[next_available] = transition.action
+        self.next_states[next_available] = transition.next_state
+        self.rewards[next_available] = transition.reward
+        self.terminals[next_available] = transition.terminal

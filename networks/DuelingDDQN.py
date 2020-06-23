@@ -8,6 +8,7 @@ class DuelingDDQN(Network):
 
     def __init__(self, input_shape, n_actions):
         """ Dueling Double Deep Q-Network (based on paper by Wang et al., 2016)
+
         Parameters
         -----------
         input_shape: array-like or tuple
@@ -19,13 +20,13 @@ class DuelingDDQN(Network):
         -----------
         conv1-3: torch.nn.Conv2d
             convolutional layers of the network
-        fc_v: torch.nn.Linear
+        fc_val: torch.nn.Linear
             fully-connnected layer for state value
-        fc_a: torch.nn.Linear
+        fc_adv: torch.nn.Linear
             fully-connected layer for advantages
-        v_stream: torch.nn.Linear
+        val_out: torch.nn.Linear
             fully-connected output layer for calculating state values
-        f_stream: torch.nn.Linear
+        adv_out: torch.nn.Linear
             fully-connected output layer for calculating advantages
         """
         super(DuelingDDQN, self).__init__(input_shape, n_actions)
@@ -35,13 +36,14 @@ class DuelingDDQN(Network):
 
         fc_input = self.conv2d_size_out()
 
-        self.fc_v = nn.Linear(in_features=fc_input, out_features=512)
-        self.fc_a = nn.Linear(in_features=fc_input, out_features=512)
-        self.v_stream = nn.Linear(in_features=512, out_features=1)
-        self.a_stream = nn.Linear(in_features=512, out_features=n_actions)
+        self.fc_val = nn.Linear(in_features=fc_input, out_features=512)
+        self.fc_adv = nn.Linear(in_features=fc_input, out_features=512)
+        self.val_out = nn.Linear(in_features=512, out_features=1)
+        self.adv_out = nn.Linear(in_features=512, out_features=n_actions)
 
     def forward(self, x):
         """ Calculates the forward pass in the network
+
         Parameters
         -----------
         x: nd-array
@@ -50,17 +52,17 @@ class DuelingDDQN(Network):
         Returns
         -----------
         state_value: torch.tensor
-            array of values for each state
+            values for each state
         advantages: torch.tensor
-            advantage values for every action for each state
+            advantage values for every state,action pair
         """
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = x.view(x.size(0), -1)
 
-        state_value = self.v_stream(F.relu(self.fc_v(x)))
-        advantages = self.a_stream(F.relu(self.fc_a(x)))
+        state_value = self.val_out(F.relu(self.fc_val(x)))
+        advantages = self.adv_out(F.relu(self.fc_adv(x)))
         return state_value, advantages
 
     def get_fc_input(self, input_shape):
