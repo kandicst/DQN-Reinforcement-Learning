@@ -4,8 +4,8 @@ import numpy as np
 
 
 class Agent(ABC):
-    def __init__(self, input_shape, n_actions, optimizer, gamma=0.99, C=4,
-                 min_eps=0.01, max_eps=1, device='GPU', checkpoint_path='scores'):
+    def __init__(self, input_shape, n_actions, gamma=0.99, batch_size=128,
+                 min_eps=0.01, max_eps=1, cutoff=1e6, device='GPU', checkpoint_path='scores'):
         """ Base class to be derived by concrete agent implementations
 
         Parameters
@@ -14,16 +14,16 @@ class Agent(ABC):
             size of the input to the network
         n_actions: int
             number of possible actions in environment
-        optimizer: torch.optimizer
-            optimizer for loss and weight updates
         gamma: float
             discount factor for future rewards
-        C : int
-            how many steps to take before replacing target network
+        batch_size: int
+            number of observation for one forward and backward pass
         min_eps: float
-            minimum value of epsilon (exploratio)
+            minimum value of epsilon (exploration ratio)
         max_eps: float
-            maximum value of epsilon
+            maximum value of epsilon (exploration ratio)
+        cutoff: float
+            after how many steps to get to min_eps
         device: string
             device to run training on (CPU or GPU)
         checkpoint_path: string
@@ -31,28 +31,27 @@ class Agent(ABC):
 
         Attributes
         -----------
-        C_counter: int
-            how many steps since last target network swap
         step_counter: int
             how many steps in training so far
         """
         self.input_shape = input_shape
         self.n_actions = n_actions
         self.possible_actions = np.arange(n_actions)
-        self.optimizer = optimizer
         self.gamma = gamma
-        self.C = C
-        self.C_counter = 0
         self.step_counter = 0
         self.min_eps = min_eps
         self.max_eps = max_eps
+        self.eps = self.max_eps
+        self.cutoff = cutoff
+        self.batch_size = batch_size
         self.checkpoint_path = checkpoint_path
 
-        if device.upper() == 'GPU' and torch.cuda.is_available():
-            self.device = torch.device('cuda:0')
-        elif device.upper() == 'GPU':
-            print("Warning: GPU is not available, and CPU will be used instead!")
-            self.device = torch.device('cpu')
+        if device.upper() == 'GPU':
+            if torch.cuda.is_available():
+                self.device = torch.device('cuda:0')
+            else:
+                print("Warning: GPU is not available, and CPU will be used instead!")
+                self.device = torch.device('cpu')
         else:
             self.device = torch.device('cpu')
 
@@ -60,13 +59,11 @@ class Agent(ABC):
     def choose_action(self, state):
         pass
 
-    @abstractmethod
-    def calculate_loss(self):
-        pass
-
-    @abstractmethod
-    def back_propagate(self):
-        pass
-
     def update_epsilon(self):
-        pass
+        """ Linearly decrease epsilon from max to min
+            so that it stays at min after cutoff
+        """
+        if self.eps <= self.min_eps:
+            return
+
+        self.eps = (self.min_eps - self.max_eps) * (self.step_counter / self.cutoff) + self.max_eps
