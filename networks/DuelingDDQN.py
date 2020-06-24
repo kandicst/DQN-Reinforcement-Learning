@@ -34,12 +34,10 @@ class DuelingDDQN(Network):
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=2, stride=2)
         self.conv3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=1, stride=1)
 
-        fc_input = self.get_fc_input()
+        conv_out = self.get_conv_out()
 
-        # self.fc_val = nn.Linear(in_features=fc_input, out_features=512)
-        # self.fc_adv = nn.Linear(in_features=fc_input, out_features=512)
-        self.fc1 = nn.Linear(fc_input, 1024)
-        self.fc2 = nn.Linear(1024, 512)
+        self.fc_val = nn.Linear(in_features=conv_out, out_features=512)
+        self.fc_adv = nn.Linear(in_features=conv_out, out_features=512)
         self.val_out = nn.Linear(in_features=512, out_features=1)
         self.adv_out = nn.Linear(in_features=512, out_features=n_actions)
 
@@ -64,38 +62,29 @@ class DuelingDDQN(Network):
         x = F.relu(self.conv3(x))
         x = x.view(x.size(0), -1)
 
-        flat1 = F.relu(self.fc1(x))
-        flat2 = F.relu(self.fc2(flat1))
-        state_values = self.val_out(flat2)
-        advantages = self.adv_out(flat2)
+        # calculate outputs of each stream
+        state_values = self.val_out(F.relu(self.fc_val(x)))
+        advantages = self.adv_out(F.relu(self.fc_adv(x)))
 
-        # state_values = self.val_out(F.relu(self.fc_val(x)))
-        # advantages = self.adv_out(F.relu(self.fc_adv(x)))
-        # calc mean of every row
-        mean_advantages = torch.mean(advantages, dim=1)
-        # add second dimension
-        mean_advantages = mean_advantages.unsqueeze(1)
-        # equation (9) in paper
+        # calculate advantage mean of every row
+        mean_advantages = torch.mean(advantages, dim=1).unsqueeze(1)
+
+        # equation (9) in paper describing network output
+        # Q(s,a) = V(s) + (A(s,a) - mean(A(s))
         ret = state_values + (advantages - mean_advantages)
-        #print(ret)
         return ret
 
 
-    def get_fc_input(self):
-        """ Calculates the input dims for fully-connected layer based on conv layers
-        Parameters
-        -----------
-        input_shape: array-like or tuple
-            size of the input to the network (before convolutions)
-
+    def get_conv_out(self):
+        """ Calculates the output dims of convolutional layers
         Returns
         -----------
         fc_input: int
             size of data after conv layers
         """
-        fc_input = self.conv3(self.conv2(self.conv1(torch.zeros(1, *self.input_shape))))
-        fc_input = int(np.prod(fc_input.size()))
-        return fc_input
+        conv_out = self.conv3(self.conv2(self.conv1(torch.zeros(1, *self.input_shape))))
+        conv_out = int(np.prod(conv_out.size()))
+        return conv_out
 
 
 if __name__ == '__main__':

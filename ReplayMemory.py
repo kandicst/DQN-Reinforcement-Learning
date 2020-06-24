@@ -47,7 +47,6 @@ class ReplayMemory:
 
     def push(self, *args):
         """ Adds a new transition to memory
-
         Parameters
         -----------
         args : tuple
@@ -55,12 +54,12 @@ class ReplayMemory:
         """
         # Unpack the transition tuple
         self.assign(Transition(*args))
+
         # Update current index
         self.counter += 1
 
     def sample(self, n_transitions):
         """ Samples a number of random transitions from memory
-
         Parameters
         -----------
         n_transitions: int
@@ -83,8 +82,6 @@ class ReplayMemory:
         # if memory full start overwriting oldest elements
         next_available = self.counter if self.counter < self.max_capacity else self.counter % self.max_capacity
 
-        # print(np.array(transition.reward).shape)
-        # print(self.rewards.shape)
         self.states[next_available] = torch.as_tensor(transition.state)
         self.actions[next_available] = torch.as_tensor(transition.action)
         self.next_states[next_available] = torch.as_tensor(transition.next_state)
