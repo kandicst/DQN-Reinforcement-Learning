@@ -60,7 +60,9 @@ class DuelingDDQN(Network):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = x.view(x.size(0), -1)
+
+        # squash into 1d tensor
+        x = x.view(x.shape[0], -1)
 
         # calculate outputs of each stream
         state_values = self.val_out(F.relu(self.fc_val(x)))
@@ -74,16 +76,15 @@ class DuelingDDQN(Network):
         ret = state_values + (advantages - mean_advantages)
         return ret
 
-
     def get_conv_out(self):
         """ Calculates the output dims of convolutional layers
         Returns
         -----------
-        fc_input: int
-            size of data after conv layers
+        conv_out: int
+            shape of data after conv layers
         """
         conv_out = self.conv3(self.conv2(self.conv1(torch.zeros(1, *self.input_shape))))
-        conv_out = int(np.prod(conv_out.size()))
+        conv_out = int(np.prod(conv_out.shape))
         return conv_out
 
 
@@ -92,6 +93,5 @@ if __name__ == '__main__':
 
     x = torch.rand([3, 1, 84, 84])
     net(x)
-
 
     print('succcces')

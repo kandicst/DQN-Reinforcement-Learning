@@ -31,18 +31,19 @@ class ReplayMemory:
         array of elements signaling whether the episode has terminated
     """
 
-    def __init__(self, input_shape, max_capacity=int(1e5)):
+    def __init__(self, input_shape, max_capacity=int(2e5)):
         self.max_capacity = max_capacity
         self.counter = 0
-        # self.states = torch.zeros((self.max_capacity, *input_shape), dtype=torch.float32)
-        # self.actions = torch.zeros(self.max_capacity, dtype=torch.int8)
-        # self.next_states = torch.zeros((self.max_capacity, *input_shape), dtype=torch.float32)
-        # self.rewards = torch.zeros(self.max_capacity, dtype=torch.float32)
-        # self.terminals = torch.zeros(self.max_capacity, dtype=torch.bool)
-        self.states = np.zeros((self.max_capacity, *input_shape), dtype=np.float32)
+        # self.states = torch.zeros((self.max_capacity, *input_shape), dtype=torch.float16)
+        # self.actions = np.zeros(self.max_capacity, dtype=np.int8)
+        # self.next_states = torch.zeros((self.max_capacity, *input_shape), dtype=torch.float16)
+        # self.rewards = torch.zeros(self.max_capacity, dtype=torch.float16)
+        # self.terminals = np.zeros(self.max_capacity, dtype=np.bool)
+
+        self.states = np.zeros((self.max_capacity, *input_shape), dtype=np.float16)
         self.actions = np.zeros(self.max_capacity, dtype=np.int8)
-        self.next_states = np.zeros((self.max_capacity, *input_shape), dtype=np.float32)
-        self.rewards = np.zeros(self.max_capacity, dtype=np.float32)
+        self.next_states = np.zeros((self.max_capacity, *input_shape), dtype=np.float16)
+        self.rewards = np.zeros(self.max_capacity, dtype=np.float16)
         self.terminals = np.zeros(self.max_capacity, dtype=np.bool)
 
     def push(self, *args):
@@ -54,7 +55,6 @@ class ReplayMemory:
         """
         # Unpack the transition tuple
         self.assign(Transition(*args))
-
         # Update current index
         self.counter += 1
 
@@ -82,8 +82,8 @@ class ReplayMemory:
         # if memory full start overwriting oldest elements
         next_available = self.counter if self.counter < self.max_capacity else self.counter % self.max_capacity
 
-        self.states[next_available] = torch.as_tensor(transition.state)
-        self.actions[next_available] = torch.as_tensor(transition.action)
-        self.next_states[next_available] = torch.as_tensor(transition.next_state)
-        self.rewards[next_available] = torch.as_tensor(transition.reward)
-        self.terminals[next_available] = torch.as_tensor(transition.terminal)
+        self.states[next_available] = transition.state
+        self.next_states[next_available] = transition.next_state
+        self.rewards[next_available] = transition.reward
+        self.actions[next_available] = transition.action
+        self.terminals[next_available] = transition.terminal
