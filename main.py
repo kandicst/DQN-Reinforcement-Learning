@@ -11,7 +11,7 @@ import torch
 
 
 def colab():
-    root_path = '/content/drive/My Drive/Projekti/ORI_RL'
+    root_path = ''
     best_score = -np.inf
     # env = gym.make('SpaceInvadersNoFrameskip-v4')
     env = gym.make('BreakoutNoFrameskip-v4')

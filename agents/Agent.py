@@ -5,7 +5,7 @@ import numpy as np
 
 class Agent(ABC):
     def __init__(self, input_shape, n_actions, gamma=0.99, batch_size=128,
-                 min_eps=0.01, max_eps=1, cutoff=1e6, device='GPU', checkpoint_path='scores'):
+                 min_eps=0.01, max_eps=1, cutoff=1e6, device='GPU'):
         """ Base class to be derived by concrete agent implementations
 
         Parameters
@@ -25,9 +25,7 @@ class Agent(ABC):
         cutoff: float
             after how many steps to get to min_eps
         device: string
-            device to run training on (CPU or GPU)
-        checkpoint_path: string
-            where to save the model
+            device to run agent on (CPU or GPU)
 
         Attributes
         -----------
@@ -44,7 +42,6 @@ class Agent(ABC):
         self.eps = self.max_eps
         self.cutoff = cutoff
         self.batch_size = batch_size
-        self.checkpoint_path = checkpoint_path
 
         if device.upper() == 'GPU':
             if torch.cuda.is_available():
@@ -60,7 +57,7 @@ class Agent(ABC):
         pass
 
     def update_epsilon(self):
-        """ Linearly decrease epsilon from max to min
+        """ Linearly decrease epsilon from max to min values
             so that it stays at min after cutoff
         """
         if self.eps <= self.min_eps:

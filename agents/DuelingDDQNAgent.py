@@ -33,8 +33,9 @@ class DuelingDDQNAgent(Agent):
     """
 
     def __init__(self, input_shape, n_actions, optimizer='RMSprop', lr=1e-4, gamma=0.99, C=10000,
-                 batch_size=32, min_eps=0.01, max_eps=1, cutoff=1e6, device='GPU'):
-        super(DuelingDDQNAgent, self).__init__(input_shape, n_actions, gamma, batch_size,
+                 batch_size=32, min_eps=0.1, max_eps=1, cutoff=1e6, second_cuttof=2.5e6, final_eps=0.01,
+                 device='GPU', clip=10):
+        super().__init__(input_shape, n_actions, gamma, batch_size,
                                                min_eps, max_eps, cutoff, device)
 
         self.memory = ReplayMemory(input_shape)
@@ -44,8 +45,12 @@ class DuelingDDQNAgent(Agent):
         self.optimizer = getattr(torch.optim, optimizer)(self.policy_network.parameters(), lr=lr)
         self.criterion = torch.nn.MSELoss()
 
+        self.second_cuttof = second_cuttof
+        self.final_eps = final_eps
+
         self.C = C
         self.C_counter = 0
+        self.clip = clip
 
     def choose_action(self, state):
         # should the agent explore
@@ -55,35 +60,24 @@ class DuelingDDQNAgent(Agent):
         # else exploit
         with torch.no_grad():
             state = np.array([state], copy=False, dtype=np.float16)
-            tensor = torch.from_numpy(state).float().to(self.device)
-            return torch.argmax(self.policy_network(tensor)).item()
+            ten = torch.from_numpy(state).float().to(self.device)
+            return torch.argmax(self.policy_network(ten)).item()
 
     def calculate_loss_and_backprop(self):
         if self.memory.counter < self.batch_size:
             return -1
 
         states, actions, next_states, rewards, terminals = self.memory.sample(self.batch_size)
-        # states = states.float().to(self.device)
-        # next_states = next_states.float().to(self.device)
-        # rewards = rewards.float().to(self.device)
-        ###########
         states = torch.from_numpy(states).float().to(self.device)
         next_states = torch.from_numpy(next_states).float().to(self.device)
         rewards = torch.from_numpy(rewards).float().to(self.device)
-        ############
 
         all_idx = torch.arange(self.batch_size)
-        # TODO SKONTAJ STO OVDE BACA GRESKU ZA ACTIONS INDEKSE
-        # print(indices, actions)
         policy_out = self.policy_network(states)[all_idx, actions]
         # disable automatic gradient calc
         with torch.no_grad():
             policy_next_out = self.policy_network(next_states)
             target_out = self.target_network(next_states)
-        ####
-        # policy_next_out = self.policy_network.forward(next_states)
-        # target_out = self.target_network.forward(next_states)
-        ####
 
         # find best action for each next state
         max_actions = torch.argmax(policy_next_out, dim=1)
@@ -96,6 +90,7 @@ class DuelingDDQNAgent(Agent):
         self.optimizer.zero_grad()
         loss = self.criterion(y, policy_out)
         loss.backward()
+        torch.nn.utils.clip_grad_norm(self.policy_network.parameters(), self.clip)
         self.optimizer.step()
 
         # after it has finished just update all necessary values
@@ -109,12 +104,10 @@ class DuelingDDQNAgent(Agent):
         if self.C_counter % self.C == 0:
             self.target_network.load_state_dict(self.policy_network.state_dict())
 
-        self.update_epsilon()
+        if self.eps == self.final_eps: return
 
+        if self.step_counter == self.second_cuttof:
+          self.eps = self.final_eps
+        else:
+          self.update_epsilon()
 
-if __name__ == '__main__':
-    x = DuelingDDQNAgent([32, 32, 32], 5, optimizer='SGD')
-
-    for i in range(int(1e6) +200):
-        x.update_epsilon()
-    print('succcces')

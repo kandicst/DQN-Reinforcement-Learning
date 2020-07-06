@@ -31,19 +31,14 @@ class ReplayMemory:
         array of elements signaling whether the episode has terminated
     """
 
-    def __init__(self, input_shape, max_capacity=int(2e5)):
+    def __init__(self, input_shape, max_capacity=int(1e6)):
         self.max_capacity = max_capacity
         self.counter = 0
-        # self.states = torch.zeros((self.max_capacity, *input_shape), dtype=torch.float16)
-        # self.actions = np.zeros(self.max_capacity, dtype=np.int8)
-        # self.next_states = torch.zeros((self.max_capacity, *input_shape), dtype=torch.float16)
-        # self.rewards = torch.zeros(self.max_capacity, dtype=torch.float16)
-        # self.terminals = np.zeros(self.max_capacity, dtype=np.bool)
 
-        self.states = np.zeros((self.max_capacity, *input_shape), dtype=np.float16)
+        self.states = [np.zeros((4, 84, 84), dtype=np.uint8)] * self.max_capacity
         self.actions = np.zeros(self.max_capacity, dtype=np.int8)
-        self.next_states = np.zeros((self.max_capacity, *input_shape), dtype=np.float16)
-        self.rewards = np.zeros(self.max_capacity, dtype=np.float16)
+        self.next_states = [np.zeros((4, 84, 84), dtype=np.uint8)] * self.max_capacity
+        self.rewards = np.zeros(self.max_capacity, dtype=np.int8)
         self.terminals = np.zeros(self.max_capacity, dtype=np.bool)
 
     def push(self, *args):
@@ -74,8 +69,9 @@ class ReplayMemory:
         # memory might not be full, so don't sample over all elements
         max_idx = min(self.counter, self.max_capacity)
         indices = np.random.choice(max_idx, n_transitions, replace=False)
-        return self.states[indices], self.actions[indices], self.next_states[indices], self.rewards[indices], \
-            self.terminals[indices]
+        states = np.stack([self.states[i] for i in indices], axis=0)
+        next_states = np.stack([self.next_states[i] for i in indices], axis=0)
+        return states, self.actions[indices], next_states, self.rewards[indices], self.terminals[indices]
 
     def assign(self, transition):
         """ Unpacks the transition to memory """

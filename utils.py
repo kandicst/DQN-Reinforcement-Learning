@@ -15,3 +15,4 @@ def save_agent(agent, path, name):
 
 def load_agent(agent, path):
     agent.policy_network.load_state_dict(torch.load(path))
+    agent.target_network.load_state_dict(agent.policy_network.state_dict())
